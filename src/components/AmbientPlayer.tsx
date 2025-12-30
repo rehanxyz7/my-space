@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Volume2, VolumeX } from 'lucide-react';
-import { Switch } from '@/components/ui/switch';
+import { motion } from 'framer-motion';
+import { Volume2, VolumeX, Wind } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 
 interface AmbientPlayerProps {
@@ -8,31 +9,27 @@ interface AmbientPlayerProps {
   defaultVolume?: number;
 }
 
-const AmbientPlayer = ({ autoPlay = true, defaultVolume = 0.3 }: AmbientPlayerProps) => {
+const AmbientPlayer = ({ autoPlay = true, defaultVolume = 0.25 }: AmbientPlayerProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(defaultVolume);
   const [hasInteracted, setHasInteracted] = useState(false);
   const audioContextRef = useRef<AudioContext | null>(null);
   const gainNodeRef = useRef<GainNode | null>(null);
-  const oscillatorsRef = useRef<OscillatorNode[]>([]);
-  const noiseNodeRef = useRef<AudioBufferSourceNode | null>(null);
+  const nodesRef = useRef<AudioNode[]>([]);
 
-  const createPinkNoise = (audioContext: AudioContext): AudioBuffer => {
-    const bufferSize = audioContext.sampleRate * 2;
-    const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
-    const output = buffer.getChannelData(0);
+  const createBrownNoise = (audioContext: AudioContext): AudioBuffer => {
+    const bufferSize = audioContext.sampleRate * 4;
+    const buffer = audioContext.createBuffer(2, bufferSize, audioContext.sampleRate);
     
-    let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
-    for (let i = 0; i < bufferSize; i++) {
-      const white = Math.random() * 2 - 1;
-      b0 = 0.99886 * b0 + white * 0.0555179;
-      b1 = 0.99332 * b1 + white * 0.0750759;
-      b2 = 0.96900 * b2 + white * 0.1538520;
-      b3 = 0.86650 * b3 + white * 0.3104856;
-      b4 = 0.55000 * b4 + white * 0.5329522;
-      b5 = -0.7616 * b5 - white * 0.0168980;
-      output[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.05;
-      b6 = white * 0.115926;
+    for (let channel = 0; channel < 2; channel++) {
+      const output = buffer.getChannelData(channel);
+      let lastOut = 0;
+      for (let i = 0; i < bufferSize; i++) {
+        const white = Math.random() * 2 - 1;
+        output[i] = (lastOut + (0.02 * white)) / 1.02;
+        lastOut = output[i];
+        output[i] *= 3.5;
+      }
     }
     return buffer;
   };
@@ -48,55 +45,86 @@ const AmbientPlayer = ({ autoPlay = true, defaultVolume = 0.3 }: AmbientPlayerPr
     masterGain.connect(audioContext.destination);
     gainNodeRef.current = masterGain;
 
-    // Create soft drone tones for ambient atmosphere
-    const frequencies = [65, 130, 195]; // Low drone frequencies
-    frequencies.forEach((freq, index) => {
-      const osc = audioContext.createOscillator();
-      const oscGain = audioContext.createGain();
-      
-      osc.type = 'sine';
-      osc.frequency.value = freq;
-      oscGain.gain.value = 0.1 / (index + 1);
-      
-      osc.connect(oscGain);
-      oscGain.connect(masterGain);
-      osc.start();
-      
-      oscillatorsRef.current.push(osc);
-    });
-
-    // Add filtered pink noise for wind-like ambient
-    const noiseBuffer = createPinkNoise(audioContext);
+    // Create brown noise for rain-like ambient
+    const noiseBuffer = createBrownNoise(audioContext);
     const noise = audioContext.createBufferSource();
     noise.buffer = noiseBuffer;
     noise.loop = true;
     
-    const noiseFilter = audioContext.createBiquadFilter();
-    noiseFilter.type = 'lowpass';
-    noiseFilter.frequency.value = 400;
-    
+    // Filter for soft rain sound
+    const lowpass = audioContext.createBiquadFilter();
+    lowpass.type = 'lowpass';
+    lowpass.frequency.value = 800;
+    lowpass.Q.value = 0.5;
+
+    const highpass = audioContext.createBiquadFilter();
+    highpass.type = 'highpass';
+    highpass.frequency.value = 100;
+
     const noiseGain = audioContext.createGain();
-    noiseGain.gain.value = 0.15;
+    noiseGain.gain.value = 0.4;
     
-    noise.connect(noiseFilter);
-    noiseFilter.connect(noiseGain);
+    noise.connect(highpass);
+    highpass.connect(lowpass);
+    lowpass.connect(noiseGain);
     noiseGain.connect(masterGain);
     noise.start();
+    nodesRef.current.push(noise);
+
+    // Add subtle wind whoosh with modulation
+    const windNoise = audioContext.createBufferSource();
+    windNoise.buffer = noiseBuffer;
+    windNoise.loop = true;
+
+    const windFilter = audioContext.createBiquadFilter();
+    windFilter.type = 'bandpass';
+    windFilter.frequency.value = 300;
+    windFilter.Q.value = 2;
+
+    // Modulate the wind filter frequency
+    const windLfo = audioContext.createOscillator();
+    const windLfoGain = audioContext.createGain();
+    windLfo.type = 'sine';
+    windLfo.frequency.value = 0.05;
+    windLfoGain.gain.value = 150;
+    windLfo.connect(windLfoGain);
+    windLfoGain.connect(windFilter.frequency);
+    windLfo.start();
+
+    const windGain = audioContext.createGain();
+    windGain.gain.value = 0.15;
+
+    windNoise.connect(windFilter);
+    windFilter.connect(windGain);
+    windGain.connect(masterGain);
+    windNoise.start();
+    nodesRef.current.push(windNoise, windLfo);
+
+    // Add very low drone for depth
+    const drone = audioContext.createOscillator();
+    drone.type = 'sine';
+    drone.frequency.value = 55;
     
-    noiseNodeRef.current = noise;
+    const droneGain = audioContext.createGain();
+    droneGain.gain.value = 0.08;
+    
+    drone.connect(droneGain);
+    droneGain.connect(masterGain);
+    drone.start();
+    nodesRef.current.push(drone);
+
     setIsPlaying(true);
   }, [volume]);
 
   const stopAmbientSound = useCallback(() => {
-    oscillatorsRef.current.forEach(osc => {
-      try { osc.stop(); } catch (e) {}
+    nodesRef.current.forEach(node => {
+      try {
+        if ('stop' in node && typeof node.stop === 'function') {
+          (node as OscillatorNode | AudioBufferSourceNode).stop();
+        }
+      } catch (e) {}
     });
-    oscillatorsRef.current = [];
-
-    if (noiseNodeRef.current) {
-      try { noiseNodeRef.current.stop(); } catch (e) {}
-      noiseNodeRef.current = null;
-    }
+    nodesRef.current = [];
 
     if (audioContextRef.current) {
       audioContextRef.current.close();
@@ -116,28 +144,18 @@ const AmbientPlayer = ({ autoPlay = true, defaultVolume = 0.3 }: AmbientPlayerPr
     }
   };
 
-  // Handle volume changes
   useEffect(() => {
     if (gainNodeRef.current) {
-      gainNodeRef.current.gain.value = volume;
+      gainNodeRef.current.gain.setValueAtTime(volume, audioContextRef.current?.currentTime || 0);
     }
   }, [volume]);
 
-  // Auto-play on first user interaction
-  useEffect(() => {
-    if (autoPlay && hasInteracted && !isPlaying) {
-      startAmbientSound();
-    }
-  }, [autoPlay, hasInteracted, isPlaying, startAmbientSound]);
-
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       stopAmbientSound();
     };
   }, [stopAmbientSound]);
 
-  // Listen for first interaction to enable audio
   useEffect(() => {
     const handleFirstInteraction = () => {
       if (!hasInteracted) {
@@ -158,37 +176,53 @@ const AmbientPlayer = ({ autoPlay = true, defaultVolume = 0.3 }: AmbientPlayerPr
   }, [autoPlay, hasInteracted, startAmbientSound]);
 
   return (
-    <div className="flex items-center gap-4 p-4 glass-card rounded-xl">
-      <div className="flex items-center gap-2">
-        {isPlaying ? (
-          <Volume2 className="w-5 h-5 text-primary" />
-        ) : (
-          <VolumeX className="w-5 h-5 text-muted-foreground" />
-        )}
-        <span className="text-sm font-medium">Ambient Sound</span>
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="flex flex-col sm:flex-row items-center gap-4 p-4 glass-card rounded-xl"
+    >
+      <div className="flex items-center gap-3">
+        <motion.div
+          animate={isPlaying ? { scale: [1, 1.1, 1] } : {}}
+          transition={{ repeat: Infinity, duration: 2 }}
+        >
+          <Wind className={`w-5 h-5 ${isPlaying ? 'text-primary' : 'text-muted-foreground'}`} />
+        </motion.div>
+        <span className="text-sm font-medium whitespace-nowrap">Ambient Rain</span>
       </div>
       
-      <Switch
-        checked={isPlaying}
-        onCheckedChange={toggleAmbient}
-        className="data-[state=checked]:bg-primary"
-      />
+      <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+        <Button
+          variant={isPlaying ? 'glow' : 'outline'}
+          size="sm"
+          onClick={toggleAmbient}
+          className="min-w-[80px]"
+        >
+          {isPlaying ? (
+            <>
+              <Volume2 className="w-4 h-4" /> On
+            </>
+          ) : (
+            <>
+              <VolumeX className="w-4 h-4" /> Off
+            </>
+          )}
+        </Button>
+      </motion.div>
       
-      {isPlaying && (
-        <div className="flex items-center gap-2 ml-2">
-          <Slider
-            value={[volume * 100]}
-            onValueChange={([val]) => setVolume(val / 100)}
-            max={100}
-            step={1}
-            className="w-24"
-          />
-          <span className="text-xs text-muted-foreground w-8">
-            {Math.round(volume * 100)}%
-          </span>
-        </div>
-      )}
-    </div>
+      <div className="flex items-center gap-3">
+        <Slider
+          value={[volume * 100]}
+          onValueChange={([val]) => setVolume(val / 100)}
+          max={100}
+          step={1}
+          className="w-28"
+        />
+        <span className="text-xs text-muted-foreground w-10 text-right">
+          {Math.round(volume * 100)}%
+        </span>
+      </div>
+    </motion.div>
   );
 };
 
