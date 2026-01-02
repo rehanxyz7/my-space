@@ -1,8 +1,10 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Headphones, Volume2, Music, ArrowRight, Sparkles } from 'lucide-react';
+import { Headphones, Volume2, Music, ArrowRight, Sparkles, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Navbar from '@/components/Navbar';
+import UserDashboard from '@/components/UserDashboard';
+import { useAuth } from '@/hooks/useAuth';
 
 const features = [
   {
@@ -29,73 +31,95 @@ const features = [
 ];
 
 const Index = () => {
+  const { user, signOut, loading } = useAuth();
+  const handleSignOut = async () => {
+    await signOut();
+  };
+
   return (
     <div className="min-h-screen relative overflow-hidden">
       <Navbar />
       
       {/* Background Effects */}
       <div className="fixed inset-0 -z-10">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,hsl(174_72%_56%/0.1),transparent_50%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,hsl(280_60%_65%/0.1),transparent_50%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,hsl(var(--primary)/0.1),transparent_50%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,hsl(var(--accent)/0.1),transparent_50%)]" />
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl float-animation" />
         <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-accent/5 rounded-full blur-3xl float-animation" style={{ animationDelay: '-3s' }} />
       </div>
 
-      {/* Hero Section */}
-      <section className="pt-32 pb-20 px-4">
-        <div className="max-w-5xl mx-auto text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-          >
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm mb-8">
-              <Sparkles className="w-4 h-4" />
-              Free forever. No distractions.
+      {/* Logged In User Dashboard */}
+      {user && !loading && (
+        <section className="pt-28 pb-12 px-4">
+          <div className="max-w-4xl mx-auto">
+            <div className="flex justify-end mb-6">
+              <Button variant="ghost" size="sm" onClick={handleSignOut} className="gap-2">
+                <LogOut className="w-4 h-4" />
+                Sign Out
+              </Button>
             </div>
-            
-            <h1 className="text-5xl md:text-7xl font-display font-bold mb-6 leading-tight">
-              Find Your
-              <span className="gradient-text block">Inner Calm</span>
-            </h1>
-            
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-10">
-              Break free from procrastination with meditation, ambient sounds, and focus music. 
-              Your sanctuary for productivity, completely free.
-            </p>
+            <UserDashboard />
+          </div>
+        </section>
+      )}
 
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link to="/meditate">
-                <Button variant="hero" size="xl">
-                  Start Meditating
-                  <ArrowRight className="w-5 h-5" />
-                </Button>
-              </Link>
-              <Link to="/sounds">
-                <Button variant="glass" size="xl">
-                  Explore Sounds
-                </Button>
-              </Link>
-            </div>
-          </motion.div>
-
-          {/* Floating Orb */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 1, delay: 0.3 }}
-            className="mt-16 relative"
-          >
-            <div className="w-48 h-48 md:w-64 md:h-64 mx-auto relative">
-              <div className="absolute inset-0 rounded-full bg-gradient-to-br from-primary/30 to-accent/30 blur-2xl breathing-animation" />
-              <div className="absolute inset-4 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 blur-xl breathing-animation" style={{ animationDelay: '-1s' }} />
-              <div className="absolute inset-8 rounded-full bg-card/50 backdrop-blur-sm border border-primary/20 breathing-animation flex items-center justify-center" style={{ animationDelay: '-2s' }}>
-                <Headphones className="w-12 h-12 text-primary" />
+      {/* Hero Section - Only show for non-logged in users */}
+      {!user && !loading && (
+        <section className="pt-32 pb-20 px-4">
+          <div className="max-w-5xl mx-auto text-center">
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8 }}
+            >
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm mb-8">
+                <Sparkles className="w-4 h-4" />
+                Free forever. No distractions.
               </div>
-            </div>
-          </motion.div>
-        </div>
-      </section>
+              
+              <h1 className="text-5xl md:text-7xl font-display font-bold mb-6 leading-tight">
+                Find Your
+                <span className="gradient-text block">Inner Calm</span>
+              </h1>
+              
+              <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-10">
+                Break free from procrastination with meditation, ambient sounds, and focus music. 
+                Your sanctuary for productivity, completely free.
+              </p>
+
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <Link to="/auth">
+                  <Button variant="hero" size="xl">
+                    Get Started
+                    <ArrowRight className="w-5 h-5" />
+                  </Button>
+                </Link>
+                <Link to="/sounds">
+                  <Button variant="glass" size="xl">
+                    Explore Sounds
+                  </Button>
+                </Link>
+              </div>
+            </motion.div>
+
+            {/* Floating Orb */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 1, delay: 0.3 }}
+              className="mt-16 relative"
+            >
+              <div className="w-48 h-48 md:w-64 md:h-64 mx-auto relative">
+                <div className="absolute inset-0 rounded-full bg-gradient-to-br from-primary/30 to-accent/30 blur-2xl breathing-animation" />
+                <div className="absolute inset-4 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 blur-xl breathing-animation" style={{ animationDelay: '-1s' }} />
+                <div className="absolute inset-8 rounded-full bg-card/50 backdrop-blur-sm border border-primary/20 breathing-animation flex items-center justify-center" style={{ animationDelay: '-2s' }}>
+                  <Headphones className="w-12 h-12 text-primary" />
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </section>
+      )}
 
       {/* Features Section */}
       <section className="py-20 px-4">
