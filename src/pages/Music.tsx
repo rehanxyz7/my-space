@@ -8,6 +8,7 @@ import StreakTracker from '@/components/StreakTracker';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Music, Timer, Trophy } from 'lucide-react';
 import { toast } from 'sonner';
+import { getStreakData, saveStreakData } from '@/lib/safeStorage';
 
 const MusicPage = () => {
   const [selectedMood, setSelectedMood] = useState<Mood | null>(null);
@@ -18,14 +19,13 @@ const MusicPage = () => {
   };
 
   const handleSessionComplete = useCallback(() => {
-    const saved = localStorage.getItem('myspace-streak');
-    const data = saved ? JSON.parse(saved) : { currentStreak: 0, longestStreak: 0, totalSessions: 0 };
+    const data = getStreakData();
     data.totalSessions += 1;
     data.currentStreak += 1;
     if (data.currentStreak > data.longestStreak) {
       data.longestStreak = data.currentStreak;
     }
-    localStorage.setItem('myspace-streak', JSON.stringify(data));
+    saveStreakData(data);
     toast.success('Session complete! Your plant is growing 🌱');
   }, []);
 

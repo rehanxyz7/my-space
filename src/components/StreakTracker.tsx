@@ -1,15 +1,8 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
-import { Flame, TreeDeciduous, Heart, Share2 } from 'lucide-react';
+import { Heart, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-
-interface StreakData {
-  currentStreak: number;
-  longestStreak: number;
-  totalSessions: number;
-  plantLevel: number;
-  causesHelped: number;
-}
+import { getStreakData, saveStreakData, type StreakData } from '@/lib/safeStorage';
 
 interface StreakTrackerProps {
   onShare?: () => void;
@@ -31,23 +24,12 @@ const causes = [
 ];
 
 const StreakTracker = ({ onShare }: StreakTrackerProps) => {
-  const [streakData, setStreakData] = useState<StreakData>(() => {
-    const saved = localStorage.getItem('myspace-streak');
-    return saved
-      ? JSON.parse(saved)
-      : {
-          currentStreak: 0,
-          longestStreak: 0,
-          totalSessions: 0,
-          plantLevel: 0,
-          causesHelped: 0,
-        };
-  });
+  const [streakData, setStreakData] = useState<StreakData>(() => getStreakData());
 
   const [showCelebration, setShowCelebration] = useState(false);
 
   useEffect(() => {
-    localStorage.setItem('myspace-streak', JSON.stringify(streakData));
+    saveStreakData(streakData);
   }, [streakData]);
 
   const currentPlant = plantStages.find(
@@ -264,4 +246,3 @@ const StreakTracker = ({ onShare }: StreakTrackerProps) => {
 };
 
 export default StreakTracker;
-export type { StreakData };

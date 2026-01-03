@@ -4,6 +4,7 @@ import Navbar from '@/components/Navbar';
 import MeditationTimer from '@/components/MeditationTimer';
 import MeditationAudio from '@/components/MeditationAudio';
 import { toast } from 'sonner';
+import { getStreakData, saveStreakData } from '@/lib/safeStorage';
 
 const Meditate = () => {
   const [isMeditating, setIsMeditating] = useState(false);
@@ -15,15 +16,14 @@ const Meditate = () => {
   const handleComplete = useCallback(() => {
     toast.success('Meditation complete! Take a moment to appreciate your practice. 🧘');
     
-    // Update streak data
-    const saved = localStorage.getItem('myspace-streak');
-    const data = saved ? JSON.parse(saved) : { currentStreak: 0, longestStreak: 0, totalSessions: 0 };
+    // Update streak data safely
+    const data = getStreakData();
     data.totalSessions += 1;
     data.currentStreak += 1;
     if (data.currentStreak > data.longestStreak) {
       data.longestStreak = data.currentStreak;
     }
-    localStorage.setItem('myspace-streak', JSON.stringify(data));
+    saveStreakData(data);
   }, []);
 
   return (
